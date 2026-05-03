@@ -27,6 +27,7 @@ import scala.meta.pc.RangeParams
 import scala.meta.pc.VirtualFileParams
 
 import com.google.gson.Gson
+import com.google.gson.JsonArray
 import com.google.gson.JsonElement
 import org.eclipse.lsp4j.CompletionItem
 import org.eclipse.lsp4j.MarkupContent
@@ -44,18 +45,27 @@ trait CommonMtagsEnrichments {
       cls: java.lang.Class[T],
       gson: Option[Gson] = None
   ): Option[T] =
-    Option(obj).flatMap { data =>
-      try {
-        Option(
-          gson
-            .getOrElse(new Gson())
-            .fromJson[T](data.asInstanceOf[JsonElement], cls)
-        )
-      } catch {
-        case NonFatal(e) =>
-          logger.error(s"decode error: $cls", e)
-          None
-      }
+    Option(obj).flatMap {
+      case arr: JsonArray =>
+        if (arr.size() > 0) {
+          logger.error(s"decode error: $cls Unexpected JsonArray ${arr}.")
+        }
+        None
+      case json: JsonElement =>
+        try {
+          Option(
+            gson
+              .getOrElse(new Gson())
+              .fromJson(json, cls)
+          )
+        } catch {
+          case NonFatal(e) =>
+            logger.error(s"decode error: $cls", e)
+            None
+        }
+      case other =>
+        logger.error(s"decode error: $cls Received: ${other}")
+        None
     }
 
   implicit class XtensionJEitherCross[A, B](either: JEither[A, B]) {
