@@ -15,10 +15,8 @@ import scala.meta.internal.metals.MtagsResolver
 import scala.meta.internal.metals.ScalaTarget
 import scala.meta.internal.metals.ScalaVersions
 import scala.meta.internal.semver.SemVer
-import scala.meta.io.AbsolutePath
 
 class ProblemResolver(
-    workspace: AbsolutePath,
     mtagsResolver: MtagsResolver,
     currentBuildServer: () => Option[BspSession],
     isTestExplorerProvider: () => Boolean,
@@ -71,8 +69,6 @@ class ProblemResolver(
         case DeprecatedRemovedScalaVersion(version) =>
           deprecatedRemovedVersions += version
         case FutureScalaVersion(version) => futureVersions += version
-        case _: SemanticDBDisabled => misconfiguredProjects += 1
-        case _: MissingSourceRoot => misconfiguredProjects += 1
         case _: WrongScalaReleaseVersion => misconfiguredProjects += 1
         case UnsupportedSbtVersion => unsupportedSbt = true
         case _: DeprecatedSbtVersion => deprecatedSbt = true
@@ -88,10 +84,7 @@ class ProblemResolver(
       issue <- findProblem(target)
     } yield {
       issue match {
-        case _: JavaSemanticDBDisabled => misconfiguredProjects += 1
-        case _: MissingJavaSourceRoot => misconfiguredProjects += 1
         case _: WrongJavaReleaseVersion => misconfiguredProjects += 1
-        case _: MissingJavaTargetRoot => misconfiguredProjects += 1
       }
       issue.message
     }
@@ -210,18 +203,6 @@ class ProblemResolver(
           Some(FutureScalaVersion(version))
         else
           Some(UnsupportedScalaVersion(version))
-      case version if !scalaTarget.isSemanticdbEnabled && !isBazelBsp =>
-        Some(
-          SemanticDBDisabled(
-            version,
-            currentBuildServer().map(_.main.name).getOrElse("<none>"),
-            isUnsupportedBloopVersion(),
-          )
-        )
-      case _
-          if !scalaTarget.isSourcerootDeclared && !ScalaVersions
-            .isScala3Version(scalaTarget.scalaVersion) && !isBazelBsp =>
-        Some(MissingSourceRoot(workspace.scalaSourcerootOption))
       case version
           if ScalaVersions.isDeprecatedScalaVersion(version) &&
             scalaTarget.sbtVersion.isDefined =>
@@ -339,24 +320,7 @@ class ProblemResolver(
 
   private def findProblem(
       javaTarget: JavaTarget
-  ): Option[JavaProblem] = {
-    if (!javaTarget.isSemanticdbEnabled && !isBazelBsp)
-      Some(
-        JavaSemanticDBDisabled(
-          currentBuildServer().map(_.main.name).getOrElse("<none>"),
-          isUnsupportedBloopVersion(),
-        )
-      )
-    else if (!javaTarget.isSourcerootDeclared && !isBazelBsp)
-      Some(MissingJavaSourceRoot(workspace.javaSourcerootOption))
-    else if (!javaTarget.isTargetrootDeclared && !isBazelBsp)
-      Some(
-        MissingJavaTargetRoot(
-          "-Xplugin:semanticdb -targetroot:javac-classes-directory"
-        )
-      )
-    else isWrongJavaRelease(javaTarget)
-  }
+  ): Option[JavaProblem] = isWrongJavaRelease(javaTarget)
 
   def isBazelBsp: Boolean = currentBuildServer().exists(_.main.isBazel)
 
