@@ -15,11 +15,9 @@ import scala.meta.internal.metals.doctor.DeprecatedRemovedScalaVersion
 import scala.meta.internal.metals.doctor.DeprecatedSbtVersion
 import scala.meta.internal.metals.doctor.FutureSbtVersion
 import scala.meta.internal.metals.doctor.FutureScalaVersion
-import scala.meta.internal.metals.doctor.MissingSourceRoot
 import scala.meta.internal.metals.doctor.OutdatedJunitInterfaceVersion
 import scala.meta.internal.metals.doctor.OutdatedMunitInterfaceVersion
 import scala.meta.internal.metals.doctor.ProblemResolver
-import scala.meta.internal.metals.doctor.SemanticDBDisabled
 import scala.meta.internal.metals.doctor.UnsupportedSbtVersion
 import scala.meta.internal.metals.doctor.UnsupportedScalaVersion
 import scala.meta.internal.metals.doctor.WrongScalaReleaseVersion
@@ -100,24 +98,6 @@ class ProblemResolverSuite extends FunSuite {
     scalaVersion = BuildInfo.scala212,
     "",
     sbtVersion = Some("1.6.0"),
-  )
-
-  checkRecommendation(
-    "missing-semanticdb",
-    scalaVersion = BuildInfo.scala212,
-    SemanticDBDisabled(
-      BuildInfo.scala212,
-      BuildInfo.bloopVersion,
-      false,
-    ).message,
-    scalacOpts = Nil,
-  )
-
-  checkRecommendation(
-    "missing-sourceroot",
-    scalaVersion = BuildInfo.scala212,
-    MissingSourceRoot("\"-P:semanticdb:sourceroot:$workspace\"").message,
-    scalacOpts = List("-Xplugin:/semanticdb-scalac_2.12.12-4.4.2.jar"),
   )
 
   checkRecommendation(
@@ -266,7 +246,6 @@ class ProblemResolverSuite extends FunSuite {
         } yield JavaInfo(home, version)
 
       val problemResolver = new ProblemResolver(
-        AbsolutePath(workspace),
         new TestMtagsResolver(checkCoursier = false),
         () => None,
         () => isTestExplorerProvider,
