@@ -10,6 +10,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 
 import scala.collection.immutable.Nil
+import scala.collection.mutable.Set
 import scala.concurrent.ExecutionContextExecutorService
 import scala.concurrent.Future
 import scala.concurrent.Promise
@@ -1653,7 +1654,46 @@ abstract class MetalsLspService(
           thresholdMillis = 1.second.toMillis,
         ) {
           val path = params.getTextDocument.getUri.toAbsolutePath
-          codeLensProvider.findLenses(path).map(_.toList.asJava)
+          val lenses = codeLensProvider.findLenses(path)
+          val filteredLenses: Future[util.List[CodeLens]] = lenses.map {
+            allLenses =>
+              val result = new util.ArrayList[CodeLens]()
+              val visited =
+                Set.empty[(Int, Int, Int, Int, String, String)]
+              val it = allLenses.iterator
+              while (it.hasNext) {
+                val cl = it.next()
+                val cmd = cl.getCommand
+                val range = cl.getRange
+                if (cmd != null && range != null) {
+                  val title = if (cmd.getTitle != null) cmd.getTitle else ""
+                  if (
+                    title.toLowerCase.contains("run") || title.toLowerCase
+                      .contains("debug")
+                  ) {
+                    val start = range.getStart
+                    val end = range.getEnd
+                    val key = (
+                      start.getLine,
+                      start.getCharacter,
+                      end.getLine,
+                      end.getCharacter,
+                      cmd.getCommand,
+                      title,
+                    )
+                    if (visited.add(key)) {
+                      result.add(cl)
+                    }
+                  } else {
+                    result.add(cl)
+                  }
+                } else if (cl != null) {
+                  result.add(cl)
+                }
+              }
+              result
+          }
+          filteredLenses
         }
       }
     }
